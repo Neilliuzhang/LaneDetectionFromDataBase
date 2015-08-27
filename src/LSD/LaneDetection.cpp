@@ -115,8 +115,22 @@ void LaneDetection::blobProcess(Mat &processImage)
 	
 }
 
+void onMouse(int event, int x, int y, int, void*)
+{
+
+}
+
+
+
 void LaneDetection::run(){
+	if (!processImage.data)
+	{
+		cout << "processImage is empty. " << endl;
+		return;
+	}
 	imshow("LaneDetection input image", processImage);
+	setMouseCallback("LaneDetection input image", onMouse, 0);
+	//imwrite("ipm.png", processImage);
 
 	Mat image;
 	processImage.copyTo(image);
@@ -126,14 +140,14 @@ void LaneDetection::run(){
 	Sobel(processImage, processImage, CV_8U, 1, 0, 1, 2);
 	Sobel(processImage, processImage, CV_8U, 1, 0, 1, 2);
 	threshold(processImage, processImage, 0, 255, THRESH_OTSU);
-	imshow("sobel-2", processImage);
+	//imshow("sobel-2", processImage);
 
 	blobProcess(processImage);
 
-	imshow("blobProcess", processImage);
+	//imshow("blobProcess", processImage);
+	//imwrite("lsd1.png", processImage);
 
-
-	//detectionLineLSD(processImage);
-	//imshow("lsd", processImage);
-	//imwrite("lsd.png", processImage);
+	detectionLineLSD(processImage);
+	imshow("lsd", processImage);
+	//imwrite("lsd2.png", processImage);
 }

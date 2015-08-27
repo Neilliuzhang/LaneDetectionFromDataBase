@@ -85,3 +85,4 @@ $RECYCLE.BIN/
 *.opensdf
 LaneDetectionFromDataBase.opensdf
 x64/
+*.xlsx

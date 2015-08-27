@@ -114,7 +114,7 @@ void InversePerspectiveMapping::createModelForStandardAssumption(double fx, doub
 	if (!estimate) return;
 	double f = (fx + fy) / 2;
 	double rx = estimateRx(cv, fx, disp);
-	cout << rx << endl;
+	cout << "estimate pitch angle from disparity map : " << rx << endl;
 	createModelForStandardAssumption(fx, fy, cu, cv, h, rx);
 }
 
@@ -180,7 +180,40 @@ void InversePerspectiveMapping::calcRemapMat(){
 //	Z = resolution.at<double>(1);
 //}
 
+void drawRoad(const Mat &disp, double rho, double theta){
+	Mat drawDisp;
+	cvtColor(disp, drawDisp, CV_GRAY2BGR);
 
+	double a = -1 / tan(theta), b = rho / sin(theta);
+	for (int r = b + 0.5; r < disp.rows; r++)
+	{
+		Vec3b* ptr_row_drawDisp = drawDisp.ptr<Vec3b>(r);
+		const uchar* ptr_row_disp = disp.ptr<uchar>(r);
+
+
+		double x = (r - b) / a;
+		int x0 = x - 2.5, x1 = x + 2.5;
+		for (int c = 0; c < disp.cols; c++)
+		{
+			int val = ptr_row_disp[c];
+			if (val != 0 && val <= x1 && val >= x0)
+			{
+				ptr_row_drawDisp[c] = Vec3b(255, 0, 0);
+			}
+		}
+	}
+
+	imshow("road", drawDisp);
+}
+
+
+const int intervalMax = 100, intervalMin = 10, step_ = 16;
+inline int betterVote(int nup, int u, int ndown, int d)
+{
+	return (int)(max(2.0, (double)(u - d)*(intervalMax - ndown) / (nup - ndown)) + d);
+}
+int g_better_vote = -1;
+// very time consuming
 double InversePerspectiveMapping::estimateRx(double cv, double f, const Mat &disp){
 	//v-disp
 	Mat vdisp = Mat::zeros(disp.rows, 256, CV_8UC1);
@@ -196,38 +229,145 @@ double InversePerspectiveMapping::estimateRx(double cv, double f, const Mat &dis
 				ptr_row_vdisp[ptr_row_disp[_c]]++;
 		}
 	}
-	//imshow("vdisp_raw", vdisp);
-	//imwrite("1.png", vdisp);
+	Mat raw_vdisp;
+	vdisp.copyTo(raw_vdisp);
 
 	threshold(vdisp, vdisp, 0, 255, THRESH_OTSU);
-	vector<Vec2f> lines;
-	int vote = 200;
-	do{
-		HoughLines(vdisp, lines, 1, 0.01 * CV_PI / 180, vote, 0, 0, 100 * CV_PI / 180, 170 * CV_PI / 180);
-		vote -= 20;
-	} while (lines.size() == 0 && vote > 0);
-	if (vote <= 0) return 0;
+	vector<Vec2f> lines_0, lines_1;
+
+
+	if (g_better_vote < 0)
+	{
+		for (int i = 150; i > 15; i-=10)
+		{
+			lines_0 = lines_1;
+			HoughLines(vdisp, lines_1, 1, 0.01 * CV_PI / 180, i, 0, 0, 120 * CV_PI / 180, 150 * CV_PI / 180);
+			int numOfLines = lines_1.size();
+			if (numOfLines > intervalMax)
+			{
+				g_better_vote = i + 10;
+				if (lines_0.size() == 0)
+				{
+					g_better_vote = i;
+				}
+				break;
+			}
+		}
+	}
+
+	int vote = g_better_vote;
+	int bi_down = max(0, g_better_vote - step_), bi_up = g_better_vote + step_;
+	int numOfLines_down = -1, numOfLines_up = -1;
+
+	bool DownUpKnown = false;
+	for (int times_i = 0; times_i < 5; times_i++)
+	{
+
+		HoughLines(vdisp, lines_1, 1, 0.01 * CV_PI / 180, vote, 0, 0, 120 * CV_PI / 180, 150 * CV_PI / 180);
+
+		//cout << "-----------------------in loop------------------------" << endl;
+		//cout << DownUpKnown << endl;
+		//cout << "numOfLines_down: " << numOfLines_down << "," << "numOfLines_up : " << numOfLines_up << endl;
+		//cout << "down : " << bi_down << " : up " << bi_up << endl << " vote:" << vote << endl;
+		//cout << "lines_1.size() : " << lines_1.size() << endl;
+		//cout << "-----------------------end in loop--------------------" << endl;
+
+		int numOfLines = lines_1.size();
+		if (numOfLines <= intervalMax && numOfLines >= intervalMin)//perfect case
+		{
+			break;
+		}
+		else
+		{
+			if (DownUpKnown)
+			{
+				if (numOfLines < intervalMin)
+				{
+					bi_up = vote;
+					numOfLines_up = numOfLines;
+					vote = betterVote(numOfLines_up, bi_up, numOfLines_down, bi_down);
+				}
+				else
+				{
+					bi_down = vote;
+					numOfLines_down = numOfLines;
+					vote = betterVote(numOfLines_up, bi_up, numOfLines_down, bi_down);
+				}
+			}
+			else
+			{
+				if (numOfLines < intervalMin)
+				{
+					int n = numOfLines;
+					while (n < intervalMin)
+					{
+						vote = bi_down;
+						bi_down = max(0, vote - step_);
+						numOfLines_up = n;
+						HoughLines(vdisp, lines_1, 1, 0.01 * CV_PI / 180, vote, 0, 0, 120 * CV_PI / 180, 150 * CV_PI / 180);
+						n = lines_1.size();
+					}
+					if (n <= intervalMax)
+						break;
+
+					bi_down = vote;
+					numOfLines_down = n;
+					bi_up = vote + step_;
+					vote = betterVote(numOfLines_up, bi_up, numOfLines_down, bi_down);
+				}
+				else
+				{
+					int n = numOfLines;
+					while (n > intervalMax)
+					{
+						vote = bi_up;
+						bi_up = vote + step_;
+						numOfLines_down = n;
+						HoughLines(vdisp, lines_1, 1, 0.01 * CV_PI / 180, vote, 0, 0, 120 * CV_PI / 180, 150 * CV_PI / 180);
+						n = lines_1.size();
+					}
+					if (n >= intervalMin)
+						break;
+
+					bi_up = vote;
+					numOfLines_up = n;
+					bi_down = max(0, vote - step_);
+					vote = betterVote(numOfLines_up, bi_up, numOfLines_down, bi_down);
+				}
+				DownUpKnown = true;
+			}
+		}
+	}
+
+	vector<Vec2f> lines = lines_1;
+	g_better_vote = vote;
+	if (lines.size() == 0)
+	{
+		cout << "--------------------------" << endl;
+		cout << "error! no lines detected! " << endl;
+		cout << "--------------------------" << endl;
+	}
 	
 	cvtColor(vdisp, vdisp, CV_GRAY2BGR);
 	double vanishing_point_y = 0;
-	double mean_rho = 0, mean_theta = 0;
+	double mean_rho = 0, mean_theta = 0;// y = -(cos(theta)/sin(theta))x + rho / sin(theta).
 	for (int i = 0; i < lines.size(); i++)
 	{
 		mean_rho += lines[i][0], mean_theta += lines[i][1];
-		//vanishing_point_y += rho / sin(theta);
-
+		
 		line(vdisp, Point(vdisp.cols, lines[i][0] / sin(lines[i][1]) - (vdisp.cols - 1)*cos(lines[i][1]) / sin(lines[i][1])),
 			Point(0, lines[i][0] / sin(lines[i][1])), Scalar(255, 128, 0));
-		//cout << vdisp.rows / 2 - rho / sin(theta) << endl;
 	}
 	mean_rho /= lines.size();
 	mean_theta /= lines.size();
 	vanishing_point_y = cv - mean_rho / sin(mean_theta);
 
-	//cout << vanishing_point_y << endl;
-	//imshow("v-disp", vdisp);
+	double theta = atan2(vanishing_point_y, f);
+
+	imshow("v-disp", vdisp); 
 	//imwrite("2.png", vdisp);
 	//waitKey();
 
-	return atan2(vanishing_point_y, f);
+	//drawRoad(disp, mean_rho, mean_theta);
+	return theta;
 }

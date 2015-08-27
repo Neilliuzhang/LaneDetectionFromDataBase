@@ -15,7 +15,7 @@ using namespace std;
 
 void parse(string &DataSetFolderName, string &calibFileName, int &rectified,
 	int &frameInterval, float &h, int &methodeDisparity, int &noDisparity,
-	int &elasSetting)
+	int &elasSetting, int &showTimeConsuming)
 {
 	ifstream in("config.txt");
 	if (!in.is_open())
@@ -31,6 +31,7 @@ void parse(string &DataSetFolderName, string &calibFileName, int &rectified,
 	in >> methodeDisparity;//0:elas ; 1:sgbm
 	in >> noDisparity;//0:computes disparity map every frame
 	in >> elasSetting;
+	in >> showTimeConsuming;
 	in.close();
 }
 
@@ -51,9 +52,11 @@ int main(){
 	int methodeDisparity = 0;
 	int noDisparity = 0;
 	int elasSetting = Elas::ROBOTICS;
+	int showTimeConsuming = 0;
 
 	//read config.txt to settings:
-	parse(DataSetFolderName, calibFileName, rectified, frameInterval, h, methodeDisparity, noDisparity, elasSetting);
+	parse(DataSetFolderName, calibFileName, rectified, frameInterval, h, 
+		methodeDisparity, noDisparity, elasSetting, showTimeConsuming);
 	
 
 	KITTI_Data_Reader reader(DataSetFolderName);
@@ -108,15 +111,24 @@ int main(){
 
 	int frameNum = 0;
 	Mat ipmImage;
+	int64 t0, t1;
 	while (reader.generateNextDataFileName())
 	{
-		int64 t0 = getTickCount();
+		if (showTimeConsuming)
+			t0 = getTickCount();
 		string left_img_file_name = reader.curImageFileName[0];
 		string right_img_file_name = reader.curImageFileName[1];
 
 		Mat L = imread(left_img_file_name);
 		Mat R = imread(right_img_file_name);
 		Mat rL, rR;//rectified images : rL, rR
+
+		if (showTimeConsuming)
+		{
+			t1 = getTickCount();
+			cout << "Reading images : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
+		}
+
 		
 		if (rectified == 1)
 		{
@@ -126,6 +138,11 @@ int main(){
 		else
 			rectifyStereo.rectifyImages(L, R, rL, rR);
 
+		if (showTimeConsuming)
+		{
+			t1 = getTickCount();
+			cout << "Rectifying images : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
+		}
 
 		if (frameNum == frameInterval)
 		{
@@ -136,12 +153,23 @@ int main(){
 			interface_ipm = new InterfaceProcessIPMImage(calibData, h, disp);
 			interface_ipm->showVehiclePosition(false, true);
 			frameNum = 0;
+
+			if (showTimeConsuming)
+			{
+				t1 = getTickCount();
+				cout << "Reinitialization : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
+			}
 		}
 
 		procVISO->processVISO(rL, rR);
 		//cout << "[";
-		//cout << procVISO.pose << "]" << endl;
+		//cout << procVISO->pose << "]" << endl;
 		//cout << endl;
+		if (showTimeConsuming)
+		{
+			t1 = getTickCount();
+			cout << "Computing pose (visual odometry) : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
+		}
 		
 
 		///----------------------Disparity Map---------------------------
@@ -159,6 +187,12 @@ int main(){
 				sgbm->compute(LforDisp, RforDisp, disp);
 				disp.convertTo(disp, CV_8U, 1.0 / 16);
 			}
+		}
+
+		if (showTimeConsuming)
+		{
+			t1 = getTickCount();
+			cout << "Computing disparity : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
 		}
 			
 
@@ -180,12 +214,20 @@ int main(){
 
 		interface_ipm->processIPM(rL, procVISO->pose, ipmImage, oxtsData);
 
-		int64 t1 = getTickCount();
-		cout << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;;
-
+		if (showTimeConsuming)
+		{
+			t1 = getTickCount();
+			cout << "ipm : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
+		}
 		//detection of lines or lanes in ipmImage
 		LaneDetection lsd(ipmImage);
 		lsd.run();
+
+		if (showTimeConsuming)
+		{
+			t1 = getTickCount();
+			cout << "Lane detection : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
+		}
 
 		if (rL.data && rR.data)
 		{
@@ -205,6 +247,7 @@ int main(){
 			waitKey();
 
 		frameNum++;
+		cout << "----------------frame end----------------------" << endl;
 	}
 	return 1;
 }

@@ -6,7 +6,7 @@
 #include "..\VisualOdometryStereo\matrix.h"
 using namespace cv;
 
-#define IPM_Z_MIN 0
+#define IPM_Z_MIN 5
 #define IPM_Z_MAX 25
 #define IPM_X_MIN -10
 #define IPM_X_MAX 10
@@ -37,10 +37,16 @@ private:
 	Mat rotation_gps;
 	double gpsData0[6];//x0,y0,h0,roll0,pitch0,yaw0
 	void initRotationGPS(Oxts_Data_Type *gpsData0);
-	double s, r;
+	double s, r; // for RADIANEARTH
 
 	void drawVehiclePosition();
 	void drawVehiclePosition(Oxts_Data_Type *gpsData);//gps position
+
+	void resampleIPMImage(Mat &IPMImage);
+
+	// transformation of coordinates
+	void XZtoIPMImage(double X, double Z, double &r, double &c);
+	void IPMImageUVtoXZ(int r, int c, double &X, double &Z);
 };
 
 
