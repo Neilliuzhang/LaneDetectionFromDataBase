@@ -302,6 +302,8 @@ double InversePerspectiveMapping::estimateRx(double cv, double f, const Mat &dis
 					while (n < intervalMin)
 					{
 						vote = bi_down;
+						if (vote == 0)
+							break;
 						bi_down = max(0, vote - step_);
 						numOfLines_up = n;
 						HoughLines(vdisp, lines_1, 1, 0.01 * CV_PI / 180, vote, 0, 0, 120 * CV_PI / 180, 150 * CV_PI / 180);

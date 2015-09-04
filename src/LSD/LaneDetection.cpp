@@ -34,7 +34,7 @@ void LaneDetection::detectionLineLSD(Mat &processImage){
 	
 
 	/*blur the image*/
-	//blur(grayImage, grayImage, Size(5, 5));
+	blur(grayImage, grayImage, Size(5, 5));
 
 
 	image_double image = new_image_double(X, Y);
@@ -57,16 +57,16 @@ void LaneDetection::detectionLineLSD(Mat &processImage){
 	/*draw the lines*/
 	for (int i = 0; i < out->size; i++)
 	{
+		int b = (unsigned)theRNG() & 255;
+		int g = (unsigned)theRNG() & 255;
+		int r = (unsigned)theRNG() & 255;
 		int thickness = (int)out->values[i * out->dim + 4] / 2;
 		int lineType = 8;
 		Point start = cv::Point(out->values[i * out->dim + 0], out->values[i * out->dim + 1]),
 			end = cv::Point(out->values[i * out->dim + 2], out->values[i * out->dim + 3]);
 
-		line(processImage, start, end, Scalar(255, 0, 0), 1, lineType);
+		line(processImage, start, end, Scalar(b, g, r), 1, lineType);
 	}
-
-	//tempo.Stop();
-	//LOG_INFO("Line finalized - Tempo: " << tempo.Elapsed());
 
 	/* free memory */
 	free_image_double(image);
@@ -115,11 +115,6 @@ void LaneDetection::blobProcess(Mat &processImage)
 	
 }
 
-void onMouse(int event, int x, int y, int, void*)
-{
-
-}
-
 
 
 void LaneDetection::run(){
@@ -129,25 +124,26 @@ void LaneDetection::run(){
 		return;
 	}
 	imshow("LaneDetection input image", processImage);
-	setMouseCallback("LaneDetection input image", onMouse, 0);
-	//imwrite("ipm.png", processImage);
+	imwrite("ipm.png", processImage);
 
 	Mat image;
 	processImage.copyTo(image);
 	detectionLineLSD(image);
 	imshow("image", image);
+	imwrite("ipm_lines.png", image);
 
 	Sobel(processImage, processImage, CV_8U, 1, 0, 1, 2);
 	Sobel(processImage, processImage, CV_8U, 1, 0, 1, 2);
-	threshold(processImage, processImage, 0, 255, THRESH_OTSU);
-	//imshow("sobel-2", processImage);
+	//threshold(processImage, processImage, 0, 255, THRESH_OTSU);
+	imshow("sobel-2", processImage);
+	imwrite("sobel-2.png", processImage);
 
 	blobProcess(processImage);
 
 	//imshow("blobProcess", processImage);
-	//imwrite("lsd1.png", processImage);
+	imwrite("lsd1.png", processImage);
 
 	detectionLineLSD(processImage);
 	imshow("lsd", processImage);
-	//imwrite("lsd2.png", processImage);
+	imwrite("lsd2.png", processImage);
 }

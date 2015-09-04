@@ -50,7 +50,7 @@ public:
 #define SIZE_S 2
 #define SQRT_SIZE_K 3
 #define SIZE_K SQRT_SIZE_K * SQRT_SIZE_K
-#define SIZE_D 4
+#define SIZE_D 5
 #define SQRT_SIZE_R 3
 #define SIZE_R SQRT_SIZE_R * SQRT_SIZE_R
 #define SIZE_T 3

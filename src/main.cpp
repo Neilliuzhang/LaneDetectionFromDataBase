@@ -85,7 +85,7 @@ int main(){
 	InterfaceProcessELAS procELAS(param);//instance for computing disparity map
 
 	Ptr<StereoSGBM> sgbm = StereoSGBM::create(0, 256, 11);//sgbm for computing dm
-
+	Ptr<StereoBM> bm = StereoBM::create(0, 15);//sgbm for computing dm
 	
 	reader.generateNextDataFileName(0);
 	string left_img_file_name = reader.curImageFileName[0];
@@ -119,8 +119,8 @@ int main(){
 		string left_img_file_name = reader.curImageFileName[0];
 		string right_img_file_name = reader.curImageFileName[1];
 
-		Mat L = imread(left_img_file_name);
-		Mat R = imread(right_img_file_name);
+		Mat L = imread(left_img_file_name, -1);
+		Mat R = imread(right_img_file_name, -1);
 		Mat rL, rR;//rectified images : rL, rR
 
 		if (showTimeConsuming)
@@ -160,7 +160,7 @@ int main(){
 				cout << "Reinitialization : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
 			}
 		}
-
+		
 		procVISO->processVISO(rL, rR);
 		//cout << "[";
 		//cout << procVISO->pose << "]" << endl;
@@ -182,9 +182,14 @@ int main(){
 		{
 			if (methodeDisparity == 0)
 				procELAS.computeDisparity(LforDisp, RforDisp, disp);
-			else
+			else if (methodeDisparity == 1)
 			{
 				sgbm->compute(LforDisp, RforDisp, disp);
+				disp.convertTo(disp, CV_8U, 1.0 / 16);
+			}
+			else if (methodeDisparity == 2)
+			{
+				bm->compute(LforDisp, RforDisp, disp);
 				disp.convertTo(disp, CV_8U, 1.0 / 16);
 			}
 		}
@@ -223,6 +228,9 @@ int main(){
 		LaneDetection lsd(ipmImage);
 		lsd.run();
 
+		//LaneDetection lsd2(rL);
+		//lsd2.run();
+
 		if (showTimeConsuming)
 		{
 			t1 = getTickCount();
@@ -243,7 +251,7 @@ int main(){
 			imwrite("disp.png", disp);
 		}
 
-		if (waitKey(10) > 0)
+		//if (waitKey(10) > 0)
 			waitKey();
 
 		frameNum++;

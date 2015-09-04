@@ -30,6 +30,7 @@ void InterfaceProcessELAS::computeDisparity(const Mat &left_img,
 		cvtColor(right_img, R, CV_BGR2GRAY);
 	else
 		right_img.copyTo(R);
+
 	
 	image<uchar> *I1, *I2;
 	I1 = loadFromCVMatGray(L);
