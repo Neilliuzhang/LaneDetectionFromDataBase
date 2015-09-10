@@ -25,8 +25,8 @@ public:
 
 	void showVehiclePosition(bool infoVISO, bool infoGPS);
 
-	void processIPM(const Mat &image, const Mat &pose, Mat &IPMImage, Oxts_Data_Type *gpsData = NULL);
-	void processIPM(const Mat &image, const Matrix &pose, Mat &IPMImage, Oxts_Data_Type *gpsData = NULL);
+	void processIPM(const Mat &image, const Mat &pose, Mat &IPMImage, Mat &IPMImageMask = Mat(), Oxts_Data_Type *gpsData = NULL);
+	void processIPM(const Mat &image, const Matrix &pose, Mat &IPMImage, Mat &IPMImageMask = Mat(), Oxts_Data_Type *gpsData = NULL);
 
 	InversePerspectiveMapping *ipm;
 	int height, width;
@@ -42,7 +42,7 @@ private:
 	void drawVehiclePosition();
 	void drawVehiclePosition(Oxts_Data_Type *gpsData);//gps position
 
-	void resampleIPMImage(Mat &IPMImage);
+	void resampleIPMImage(Mat &IPMImage, Mat &mask);
 
 	// transformation of coordinates
 	void XZtoIPMImage(double X, double Z, double &r, double &c);

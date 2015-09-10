@@ -11,8 +11,6 @@
 #include <iostream>
 using namespace std;
 
-
-
 void parse(string &DataSetFolderName, string &calibFileName, int &rectified,
 	int &frameInterval, float &h, int &methodeDisparity, int &noDisparity,
 	int &elasSetting, int &showTimeConsuming)
@@ -37,7 +35,6 @@ void parse(string &DataSetFolderName, string &calibFileName, int &rectified,
 
 
 int main(){
-
 	//default values
 	string DataSetFolderName; 
 	DataSetFolderName = "C:\\201506-201511MFE\\KITTI_data\\2011_09_26\\2011_09_26_drive_0029_sync";
@@ -47,7 +44,7 @@ int main(){
 
 	//default settings:
 	int frameInterval = 7;
-	float h = 1.2;//m
+	float h = 1.2f;//m
 	int rectified = 1; // 1 -- have already rectified; 0 -- need rectify
 	int methodeDisparity = 0;
 	int noDisparity = 0;
@@ -146,7 +143,7 @@ int main(){
 
 		if (frameNum == frameInterval)
 		{
-			procELAS.computeDisparity(rL, rR, disp);
+			//procELAS.computeDisparity(rL, rR, disp);
 			procVISO->~InterfaceProcessVISO();
 			procVISO = new InterfaceProcessVISO(calibData);
 			interface_ipm->~InterfaceProcessIPMImage();
@@ -177,7 +174,9 @@ int main(){
 
 		rectifyStereo.getROI(rL, rR, LforDisp, RforDisp);
 
+
 		Mat disp;
+		/*
 		if (!noDisparity)
 		{
 			if (methodeDisparity == 0)
@@ -193,7 +192,7 @@ int main(){
 				disp.convertTo(disp, CV_8U, 1.0 / 16);
 			}
 		}
-
+		*/
 		if (showTimeConsuming)
 		{
 			t1 = getTickCount();
@@ -217,19 +216,21 @@ int main(){
 			oxtsData = NULL;
 		}
 
-		interface_ipm->processIPM(rL, procVISO->pose, ipmImage, oxtsData);
+		Mat ipmMask;
+		interface_ipm->processIPM(rL, procVISO->pose, ipmImage, ipmMask, oxtsData);
 
 		if (showTimeConsuming)
 		{
 			t1 = getTickCount();
 			cout << "ipm : " << (t1 - t0) / getTickFrequency() * 1000 << " ms. " << endl;
 		}
+		
 		//detection of lines or lanes in ipmImage
-		LaneDetection lsd(ipmImage);
-		lsd.run();
+		//LaneDetection lsd(ipmImage, ipmMask);
+		//lsd.run(3, 1);
 
-		//LaneDetection lsd2(rL);
-		//lsd2.run();
+		LaneDetection lsd_(rL);
+		lsd_.run(3, 2);
 
 		if (showTimeConsuming)
 		{
@@ -251,7 +252,7 @@ int main(){
 			imwrite("disp.png", disp);
 		}
 
-		//if (waitKey(10) > 0)
+		if (waitKey(10) > 0)
 			waitKey();
 
 		frameNum++;

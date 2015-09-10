@@ -138,6 +138,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\LSD\AlgoFilterLanes.cpp" />
     <ClCompile Include="..\src\LSD\LaneDetection.cpp" />
   </ItemGroup>
   <ItemGroup>

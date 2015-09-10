@@ -38,7 +38,7 @@ void InterfaceProcessIPMImage::showVehiclePosition(bool infoVISO, bool infoGPS)
 	showInfoGPS = infoGPS;
 }
 
-void InterfaceProcessIPMImage::processIPM(const Mat &image, const Mat &pose, Mat &outIPMImage, 
+void InterfaceProcessIPMImage::processIPM(const Mat &image, const Mat &pose, Mat &outIPMImage, Mat &IPMImageMask,
 	Oxts_Data_Type *gpsData)
 {
 	ipm->updateFrameUsingStandardAssumption(pose);
@@ -49,6 +49,7 @@ void InterfaceProcessIPMImage::processIPM(const Mat &image, const Mat &pose, Mat
 	else
 		image.copyTo(grayImage);
 
+	Mat mask = Mat::zeros(ipmImage.size(), CV_8UC1);
 	for (int i = 0; i < height; i++)
 	{
 		if (i < height / 2) continue;
@@ -88,10 +89,12 @@ void InterfaceProcessIPMImage::processIPM(const Mat &image, const Mat &pose, Mat
 			{
 				if (r < 0) continue;
 				uchar *ptr_row_ipm_image = ipmImage.ptr<uchar>(r);
+				uchar *ptr_row_mask = mask.ptr<uchar>(r);
 
 				for (int c = int_c0; c <= int_c1 && c < ipmImage.cols; c++)
 				{
 					if (c < 0) continue;
+					ptr_row_mask[c] = 255;
 					if (ptr_row_ipm_image[c] == 0)
 						ptr_row_ipm_image[c] = ptr_row_grayImage[j];
 					else
@@ -103,7 +106,7 @@ void InterfaceProcessIPMImage::processIPM(const Mat &image, const Mat &pose, Mat
 	}
 
 	//imwrite("ipm_before_resample.png", ipmImage);
-	resampleIPMImage(ipmImage);
+	resampleIPMImage(ipmImage, mask);
 	//imwrite("ipm_after_resample.png", ipmImage);
 
 	if (showInfoVISO)
@@ -112,6 +115,7 @@ void InterfaceProcessIPMImage::processIPM(const Mat &image, const Mat &pose, Mat
 		drawVehiclePosition(gpsData);
 
 	ipmImage.copyTo(outIPMImage);
+	mask.copyTo(IPMImageMask);
 }
 
 void InterfaceProcessIPMImage::XZtoIPMImage(double X, double Z, double &r, double &c){
@@ -124,7 +128,7 @@ void InterfaceProcessIPMImage::IPMImageUVtoXZ(int r, int c, double &X, double &Z
 
 }
 
-void InterfaceProcessIPMImage::processIPM(const Mat &image, const Matrix &pose, Mat &IPMImage, 
+void InterfaceProcessIPMImage::processIPM(const Mat &image, const Matrix &pose, Mat &IPMImage, Mat &IPMImageMask,
 	Oxts_Data_Type *gpsData)
 {
 	Mat mat_pose = Mat::eye(pose.m, pose.n, CV_64FC1);
@@ -133,18 +137,22 @@ void InterfaceProcessIPMImage::processIPM(const Mat &image, const Matrix &pose, 
 		for (int j = 0; j < mat_pose.cols; j++)
 			ptr_mat_pose[i*mat_pose.cols + j] = pose.val[i][j];
 	
-	processIPM(image, mat_pose, IPMImage, gpsData);
+	processIPM(image, mat_pose, IPMImage, IPMImageMask, gpsData);
 }
 
 void InterfaceProcessIPMImage::drawVehiclePosition()
 {
 }
 
-void InterfaceProcessIPMImage::resampleIPMImage(Mat &IPMImage)
+void InterfaceProcessIPMImage::resampleIPMImage(Mat &IPMImage, Mat &mask)
 {
 	//method 1:
 	//interpolation between row - 1 and row + 1
 	//interpolation only for one black row
+	//row[2]
+	//row[1]
+	//row[0]
+
 	int rows = IPMImage.rows, cols = IPMImage.cols;
 	uchar *ptr_row_data[3];
 	bool black[3] = { true, true, true };
@@ -170,8 +178,10 @@ void InterfaceProcessIPMImage::resampleIPMImage(Mat &IPMImage)
 
 		if (!black[0] && black[1] && !black[2])
 		{
+			uchar *ptr_row_mask = mask.ptr<uchar>(_r);
 			for (int _c = 0; _c < cols; _c++)
 			{
+				ptr_row_mask[_c] = 255;
 				ptr_row_data[1][_c] = 0.5 * ptr_row_data[0][_c] + 0.5 * ptr_row_data[2][_c];
 			}
 		}
